@@ -23,6 +23,8 @@
 #endif
 #define _LastRequest_Included_
 
+#include <hosties>
+
 // Custom types
 enum LastRequest
 {
@@ -78,7 +80,7 @@ enum LR_Structure
 	DataType:TheDataPack
 };
 
-public SharedPlugin __pl_lastrequest =
+public SharedPlugin:__pl_lastrequest =
 {
 	name = "lastrequest",
 	file = "sm_hosties.smx",
@@ -89,10 +91,11 @@ public SharedPlugin __pl_lastrequest =
 	#endif
 };
 
-public void __pl_lastrequest_SetNTVOptional()
+public __pl_lastrequest_SetNTVOptional()
 {
 	MarkNativeAsOptional("IsClientRebel");
 	MarkNativeAsOptional("IsClientInLastRequest");
+	MarkNativeAsOptional("IsLastRequestAvailable");
 	MarkNativeAsOptional("AddLastRequestToList");
 	MarkNativeAsOptional("RemoveLastRequestFromList");
 	MarkNativeAsOptional("ProcessAllLastRequests");
@@ -104,10 +107,16 @@ public void __pl_lastrequest_SetNTVOptional()
 typedef FuncLastRequest = function void(int type, int prisoner, int guard);
 typedef FuncProcessLR = function void(Handle array, int iLRNumber);
 
+forward OnStartLR(PrisonerIndex, GuardIndex, LR_Type);
 
-forward void OnStartLR(int PrisonerIndex, int GuardIndex, int LR_Type);
+forward OnAvailableLR(Announced);
 
-forward void OnAvailableLR(int Announced);
+/**
+ * Find if last request is available.
+ * 
+ * @return						True if last request is available, false otherwise.
+ */
+native bool:IsLastRequestAvailable(IsLR);
 
 /**
  * Find if a client is listed as a rebel.
@@ -116,7 +125,7 @@ forward void OnAvailableLR(int Announced);
  * @return						True if rebel, false otherwise.
  * @error                       Invalid client index.
  */
-native bool IsClientRebel(int client);
+native bool:IsClientRebel(client);
 
 /**
  * Find if a client is in a last request.
@@ -126,7 +135,7 @@ native bool IsClientRebel(int client);
  *									Otherwise client index of partner or -1 if in LR but no partner exists
  * @error                       Invalid client index.
  */
-native bool IsClientInLastRequest(int client);
+native IsClientInLastRequest(client);
 
 /**
  * Adds a custom last request.
@@ -137,7 +146,7 @@ native bool IsClientInLastRequest(int client);
  * @param AutoStart				Whether the LR will start immediately (true) or if additional menus are needed (false).
  * @return						The type index of the LR added.
  */
-native int AddLastRequestToList(FuncProcessLR Start, FuncLastRequest Stop, char[] LR_Name, bool AutoStart = true);
+native AddLastRequestToList(FuncProcessLR:Start, FuncLastRequest:Stop, String:LR_Name[], bool:AutoStart = true);
 
 /**
  * Removes a custom last request.
@@ -148,7 +157,7 @@ native int AddLastRequestToList(FuncProcessLR Start, FuncLastRequest Stop, char[
  * @noreturn						
  * @error                     	Last request not found.
  */
-native void RemoveLastRequestFromList(FuncProcessLR Start, FuncLastRequest Stop, char[] LR_Name);
+native void RemoveLastRequestFromList(FuncProcessLR:Start, FuncLastRequest:Stop, String:LR_Name[]);
 
 /**
  * Provides iteration for all active last requests.
@@ -157,7 +166,7 @@ native void RemoveLastRequestFromList(FuncProcessLR Start, FuncLastRequest Stop,
  * @param iLastRequestIndex		Index number of last request in array.
  * @return						Number of last requests in progress.
  */
-native int ProcessAllLastRequests(FuncProcessLR ProcessLR, int iLastRequestIndex);
+native ProcessAllLastRequests(FuncProcessLR:ProcessLR, iLastRequestIndex);
 
 /**
  * Alters the boolean array determining if a given client is considered a rebel.
@@ -167,7 +176,7 @@ native int ProcessAllLastRequests(FuncProcessLR ProcessLR, int iLastRequestIndex
  * @noreturn
  * @error						Invalid parameters
  */
-native void ChangeRebelStatus(int client, bool status);
+native ChangeRebelStatus(client, status);
 
 /**
  * Starts the lr if autostart is false.
@@ -176,7 +185,7 @@ native void ChangeRebelStatus(int client, bool status);
  * @noreturn
  * @error						Invalid parameters or wrong client index
  */
-native void InitializeLR(int prisoner);
+native InitializeLR(prisoner);
 
 /**
  * Cleanup the data about the autostart LR for a client.
@@ -186,33 +195,47 @@ native void InitializeLR(int prisoner);
  * @noreturn
  * @error						Invalid parameters or wrong client index
  */
-native void CleanupLR(int prisoner);
+native CleanupLR(prisoner);
 
-stock void SetThirdPerson(int client)
+stock SetThirdPerson(client, GameType:game = Game_Unknown)
 {
 	if (IsValidEntity(client) && IsClientInGame(client))
 	{
-		SetEntPropEnt(client, Prop_Send, "m_hObserverTarget", 0);
-		SetEntProp(client, Prop_Send, "m_iObserverMode", 1);
-		SetEntProp(client, Prop_Send, "m_bDrawViewmodel", 0);
-		SetEntProp(client, Prop_Send, "m_iFOV", 120);
+		if (game == Game_CSGO)
+		{
+			ClientCommand(client, "thirdperson");
+		}
+		else
+		{
+			SetEntPropEnt(client, Prop_Send, "m_hObserverTarget", 0);
+			SetEntProp(client, Prop_Send, "m_iObserverMode", 1);
+			SetEntProp(client, Prop_Send, "m_bDrawViewmodel", 0);
+			SetEntProp(client, Prop_Send, "m_iFOV", 120);
+		}
 	}
 }
 
-stock void SetFirstPerson(int client)
+stock SetFirstPerson(client, GameType:game = Game_Unknown)
 {
 	if (IsValidEntity(client) && IsClientInGame(client))
 	{
-		SetEntPropEnt(client, Prop_Send, "m_hObserverTarget", 1);
-		SetEntProp(client, Prop_Send, "m_iObserverMode", 0);
-		SetEntProp(client, Prop_Send, "m_bDrawViewmodel", 1);
-		SetEntProp(client, Prop_Send, "m_iFOV", 90);
+		if (game == Game_CSGO)
+		{
+			ClientCommand(client, "firstperson");
+		}
+		else
+		{
+			SetEntPropEnt(client, Prop_Send, "m_hObserverTarget", 1);
+			SetEntProp(client, Prop_Send, "m_iObserverMode", 0);
+			SetEntProp(client, Prop_Send, "m_bDrawViewmodel", 1);
+			SetEntProp(client, Prop_Send, "m_iFOV", 90);
+		}
 	}
 }
 
-stock void CancelAllMenus()
+stock CancelAllMenus()
 {
-	for (int idx = 1; idx < MaxClients; idx++)
+	for (new idx = 1; idx < MaxClients; idx++)
 	{
 		if (IsClientInGame(idx))
 		{
@@ -224,9 +247,9 @@ stock void CancelAllMenus()
 	}
 }
 
-stock void ClosePotentialLRMenus()
+stock ClosePotentialLRMenus()
 {
-   for (int idx = 1; idx < MaxClients; idx++)
+   for (new idx = 1; idx < MaxClients; idx++)
    {
       if (IsClientInGame(idx))
       {
@@ -241,7 +264,7 @@ stock void ClosePotentialLRMenus()
    }
 }
 
-stock bool PlayerHasGun(int client)
+stock bool:PlayerHasGun(client)
 {
 	if (PlayerHasPrimary(client) || PlayerHasSecondary(client))
 	{
@@ -250,7 +273,7 @@ stock bool PlayerHasGun(int client)
 	return false;
 }
 
-stock bool PlayerHasPrimary(int client)
+stock bool:PlayerHasPrimary(client)
 {
 	if (GetPlayerWeaponSlot(client, CS_SLOT_PRIMARY) != -1)
 	{
@@ -259,7 +282,7 @@ stock bool PlayerHasPrimary(int client)
 	return false;
 }
 
-stock bool PlayerHasSecondary(int client)
+stock bool:PlayerHasSecondary(client)
 {
 	if (GetPlayerWeaponSlot(client, CS_SLOT_SECONDARY) != -1)
 	{
@@ -269,25 +292,24 @@ stock bool PlayerHasSecondary(int client)
 }
 
 // filter function to ignore everything
-public bool Trace_FilterNothing(int entity, int contentsMask)
+public bool:Trace_FilterNothing(entity, contentsMask)
 {
 	return entity == 0;
 }
 
 // Based on Client_IsLookingAtWall, Edict_GetClosestToEdict from SM-LIB with permission from Berni
 // detects if it's safe to teleport a player where the player is aiming
-stock bool IsClientTooNearObstacle(int client, float distance = 110.0, bool checkAllEntities = false)
+stock bool:IsClientTooNearObstacle(client, Float:distance = 110.0, bool:checkAllEntities = false)
 {
-	float posEye[3], posEyeAngles[3], vecOrigin[3], vecOrigin_edict[3];
-	char Class_edict[64];
-	bool isClientLookingAtWall = false;
-	bool isClientCloseToEdict = false;
+	decl Float:posEye[3], Float:posEyeAngles[3], Float:vecOrigin[3], Float:vecOrigin_edict[3], String:Class_edict[64];
+	new bool:isClientLookingAtWall = false;
+	new bool:isClientCloseToEdict = false;
 	
 	GetClientAbsOrigin(client, vecOrigin);
 	
 	if (checkAllEntities)
 	{
-		for (int edict=1; edict <= GetMaxEntities(); edict++)
+		for (new edict=1; edict <= GetMaxEntities(); edict++)
 		{
 			
 			if (!IsValidEntity(edict))
@@ -328,7 +350,7 @@ stock bool IsClientTooNearObstacle(int client, float distance = 110.0, bool chec
 	
 	posEyeAngles[0] = 0.0;
 	
-	Handle trace = TR_TraceRayFilterEx(posEye, posEyeAngles, CONTENTS_SOLID, RayType_Infinite, Trace_FilterNothing);
+	new Handle:trace = TR_TraceRayFilterEx(posEye, posEyeAngles, CONTENTS_SOLID, RayType_Infinite, Trace_FilterNothing);
 	
 	if (TR_DidHit(trace))
 	{
@@ -349,11 +371,11 @@ stock bool IsClientTooNearObstacle(int client, float distance = 110.0, bool chec
 					isClientLookingAtWall = true;
 				}
 			}
-			delete hullTrace;
+			CloseHandle(hullTrace);
 		}
 	}
 	
-	delete trace;
+	CloseHandle(trace);	
 	
 	if (isClientCloseToEdict || isClientLookingAtWall)
 	{
